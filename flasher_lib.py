@@ -79,3 +79,23 @@ def s_orden(i, j, k, orden, delta, alpha, eta, epsilon):
 
 def calculate_centroid(points):
     return np.mean(points, axis=0)
+
+def lista_modulos(j, indices_totales, m, delta, alpha, epsilon, distancia_entre_ptos):
+    modulos = []
+    for i in range(indices_totales):
+        p1 = p(i, j, m, delta, alpha, epsilon)
+        p2 = p(i + 1, j, m, delta, alpha, epsilon)
+        distancia = e_distance(p1, p2)
+        modulos.append(distancia)
+        total_modulos = sum(modulos)    
+        puntos_totales=np.floor(total_modulos/distancia_entre_ptos)
+    return modulos, puntos_totales, total_modulos
+
+def encontrar_indice(modulos, distancia_k):
+    suma_modulos = 0
+    for idx, modulo in enumerate(modulos):
+        suma_modulos += modulo
+        if distancia_k < suma_modulos:
+            return idx
+    print("Verificar que el i solicitado caiga en los i totales, usando v4")
+    return -1  
