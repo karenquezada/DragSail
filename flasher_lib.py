@@ -23,24 +23,29 @@ def u(x):
 
 p00 = np.array([1, 0])
 
-def p(i, j, orden, delta, alpha, epsilon):
+def p(i, j, orden, delta, alpha, epsilon, s_f):
     # j wrap around 
-    
     j = j % orden
-    # if i<0:
-    #     #print("i", i, "j", j,"p00\n")
-    #     assert False
     if j == 0:
         if i == 0:
-            #print("i", i, "j", j,"p00\n")
-            return p00
+            resultado = p00 * s_f  # Escalar p00
         else:
-            #print("i", i, "j", j,"lineint")
-            return lineint(p(i-1, 0, orden, delta, alpha, epsilon), u(theta(i-1, 0, delta, alpha, epsilon, orden)), 
-                           p(i-1, 1, orden, delta, alpha, epsilon), u(phi(i-1, 1, delta, epsilon, orden)))
+            resultado = lineint(
+                p(i-1, 0, orden, delta, alpha, epsilon, s_f),
+                u(theta(i-1, 0, delta, alpha, epsilon, orden)) * s_f,
+                p(i-1, 1, orden, delta, alpha, epsilon, s_f),
+                u(phi(i-1, 1, delta, epsilon, orden)) * s_f
+            )
     else:
-        #print("i", i, "j", j,"Rm")
-        return Rm(j, orden) @ p(i, 0, orden, delta, alpha, epsilon)
+        resultado = Rm(j, orden) @ p(i, 0, orden, delta, alpha, epsilon, s_f)  # Escalar el resultado
+
+    # Verificar si el resultado es complejo
+    if np.iscomplexobj(resultado):
+        print(f"p({i}, {j}, {orden}, {delta}, {alpha}, {epsilon}, {s_f}) es complejo: {resultado}")
+    
+    return resultado
+
+
 
 def dk(h, epsilon, m):
     # distancia a la cual hay que ubicar el vértice de la V que comienza un pliegue reverso
@@ -52,7 +57,11 @@ def module_p(i, j, orden, delta, alpha, epsilon):
     return module
 
 def e_distance(p1, p2):
-    return np.linalg.norm(p1 - p2)
+    distancia= np.linalg.norm(p1 - p2)
+    if np.iscomplexobj(distancia):
+        print(f"e_distance entre {p1} y {p2} es complejo: {distancia}")
+    
+    return distancia
 
 def rho(i, j, k, delta, alpha, eta, epsilon, m):
     return theta(i, j, delta, alpha, epsilon, m) + eta + k * epsilon
@@ -80,14 +89,17 @@ def s_orden(i, j, k, orden, delta, alpha, eta, epsilon):
 def calculate_centroid(points):
     return np.mean(points, axis=0)
 
-def lista_modulos(j, indices_totales, m, delta, alpha, epsilon, distancia_entre_ptos):
+def lista_modulos(j, indices_totales, m, delta, alpha, epsilon, distancia_entre_ptos, sf):
     modulos = []
+    total_modulos = 0
+    puntos_totales = 0
     for i in range(indices_totales):
-        p1 = p(i, j, m, delta, alpha, epsilon)
-        p2 = p(i + 1, j, m, delta, alpha, epsilon)
+        p1 = p(i, j, m, delta, alpha, epsilon, sf)
+        p2 = p(i + 1, j, m, delta, alpha, epsilon, sf)
         distancia = e_distance(p1, p2)
         modulos.append(distancia)
-        total_modulos = sum(modulos)    
+        total_modulos = sum(modulos)  
+    if distancia_entre_ptos > 0:  
         puntos_totales=np.floor(total_modulos/distancia_entre_ptos)
     return modulos, puntos_totales, total_modulos
 

@@ -4,36 +4,37 @@ import random
 from multiprocessing import Pool
 from flasher_lib import *
 
-def N(r, s_f, d_function, h, epsilon, m):
-    # Implementar la lógica para calcular d(i, i+1) utilizando d_function
-    sum_d = sum(d_function(i, i + 1) for i in range(r))
-    return int((s_f * sum_d) / (h * np.cos(epsilon / 2) * np.sqrt(1/np.sin(np.pi / m) * 1/np.sin(np.pi / m - epsilon))))
+m = 4
+delta = np.pi / 3.7
+alpha_variable = np.pi / 2 - np.pi / m
+epsilon = 10 * np.pi / 250
+eta_variable = (np.pi / m) - (epsilon / 2)
+h = 35
+distancia_k = dk(h, epsilon, m)
+
+def N(r, s_f):
+    r=int(r)
+    sum_d = sum(e_distance(i, i + 1) for i in range(r))
+    return int((s_f * sum_d) / distancia_k)
 
 r_i_j_cache = {}
-
 def r_i_j(params):
-    # Convertir la entrada de params en una tupla, para que pueda ser usada como clave en el diccionario
     params_tuple = tuple(params)
-
-    # Verificar si el resultado para estos parámetros ya está en la caché
+    
     if params_tuple in r_i_j_cache:
-        #print("caché", r_i_j_cache)
         return r_i_j_cache[params_tuple]
-        
 
-    # Si no está en la caché, realizar el cálculo
-    i, j, m, i_final, delta, alpha, epsilon, altura = params
+    i, j, m, i_final, delta, alpha_variable, epsilon, altura, s_f = params  # Añadir s_f a los parámetros
+    i_final = int(i_final)
     resultados = []
     distancia_k = dk(altura, epsilon, m)
-    #print("distancia_k fn1", distancia_k)
-    punto_inicial = p(0, j, m, delta, alpha, epsilon)
+    punto_inicial = p(0, j, m, delta, alpha_variable, epsilon, s_f)  # Pasar s_f a p
+    if np.iscomplexobj(punto_inicial):
+        print(f"punto_inicial es complejo: {punto_inicial}")
     punto_actual = punto_inicial 
-
-    modulos_totales=lista_modulos(j, i_final, m, delta, alpha, epsilon, distancia_k)[0]
-    #print("modulos_totales fn1",modulos_totales)
-    total_modulos = lista_modulos(j, i_final, m, delta, alpha, epsilon, distancia_k)[2]
-    #print("total_modulos fn1",total_modulos)
-    #print("numero de ptos fn2",total_modulos/distancia_k)
+    modulos_totales = lista_modulos(j, i_final, m, delta, alpha_variable, epsilon, distancia_k, s_f)[0]
+    total_modulos = lista_modulos(j, i_final, m, delta, alpha_variable, epsilon, distancia_k, s_f)[2]
+    
     if total_modulos < distancia_k:
         punto_actual = punto_inicial
     else:
@@ -47,55 +48,67 @@ def r_i_j(params):
         for idx, remanente in resultados:
             if idx >= i:
                 break
-        p_start = p(idx, j, m, delta, alpha, epsilon)
-        p_next = p(idx + 1, j, m, delta, alpha, epsilon)
+        p_start = p(idx, j, m, delta, alpha_variable, epsilon, s_f)  # Pasar s_f a p
+        p_next = p(idx + 1, j, m, delta, alpha_variable, epsilon, s_f)  # Pasar s_f a p
         direccion = (p_next - p_start) / e_distance(p_next, p_start)
         desplazamiento = direccion * remanente
         punto_actual = p_start + desplazamiento
-
-    # Almacenar el resultado en la caché antes de devolverlo
+        if np.iscomplexobj(punto_actual):
+            print(f"punto_actual es complejo AAAAAAAAAA: {punto_actual}")
     r_i_j_cache[params_tuple] = punto_actual
     return punto_actual
 
 # Definir la función objetivo a maximizar
 def objective(individual):
-    m_Njx, m_Njy, r = individual
-    return 2 * np.sqrt(m_Njx**2 + m_Njy**2),  # Maximizamos
+    r, sf, dr = individual
+    n = N(r, sf)
+    m_Njx, m_Njy = r_i_j((n, 0, m, r, delta, alpha_variable, epsilon, h, sf))  # Añadir sf aquí
+    return 2 * np.sqrt(m_Njx**2 + m_Njy**2)  
 
 # Definir las restricciones como penalizaciones
 def constraint1(individual):
-    m, t, r = 4, 1, individual[2]  # Obtener el valor de r de 'individual'
-    s_f = 0.1  # Asignar un valor de ejemplo para s_f
-    r_cc = 1 * s_f  # Calcular r_cc
+    r, sf, dr = individual  # Obtener el valor de r de 'individual'
+    r_cc = 1 * sf  # Calcular r_cc
+    t = dr * r_cc
     return max(0, 64 - 2 * (m * (m + 1) * t * np.floor(r / m) + (r % m) * ((r % m) + 1) * t + r_cc))
-
-def constraint2(individual):
-    epsilon, d_k = 0.1, 1  # Ejemplo de valores
-    m = 2
-    expr = (1 / np.sin(np.pi/m)) * (1 / np.sin(np.pi/m)) - epsilon
-    return max(0, 36 - (d_k / np.cos((epsilon / 2) * np.sqrt(np.abs(expr)))))
-
-def constraint3(individual):
-    r = individual[2]
-    return max(0, 3 - r)
-
-def constraint4(individual):
-    d_r = 0.1  # Ejemplo de valor
-    return max(0, d_r - 0.1)
-
-def constraint5(individual):
-    s_f = 0.1  # Ejemplo de valor
-    return max(0, s_f)
 
 # Penalización por violación de restricciones
 def penalty(individual):
-    return constraint1(individual) + constraint2(individual) + constraint3(individual) + constraint4(individual) + constraint5(individual)
+    return constraint1(individual)
 
 # Función de evaluación final
 def evaluate(individual):
-    obj_value = objective(individual)[0]
+    obj_value = objective(individual)
     penalties = penalty(individual)
-    return np.real(obj_value - penalties),  # Forzamos que sea un número real
+    if np.iscomplexobj(obj_value):
+        print(f"Valor objetivo es complejo: {obj_value}")
+    
+    if np.iscomplexobj(penalties):
+        print(f"Penalizaciones son complejas: {penalties}")
+    
+    return np.real(obj_value - penalties),
+
+# Función para aplicar las restricciones a los individuos
+def apply_constraints(individual):
+    # Aquí se pueden aplicar las restricciones específicas, por ejemplo:
+    individual[0] = int(round(individual[0]))  # Redondear r
+    individual[0] = max(1, min(individual[0], 3))  # Asegurar que esté entre 1 y 3
+    sf_lower_bound = 0.0001
+    sf_upper_bound = 4  # Ajusta este valor según tus necesidades
+    dr_lower_bound = 0.1
+    dr_upper_bound = 5  # Ajusta este valor según tus necesidades
+
+    # Asegúrate de que sf sea positivo y esté dentro de los límites
+    individual[1] = max(sf_lower_bound, min(individual[1], sf_upper_bound))
+
+    # Asegúrate de que dr sea positivo y esté dentro de los límites
+    individual[2] = max(dr_lower_bound, min(individual[2], dr_upper_bound))
+
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+
 
 # Crear la estructura de los individuos y la población
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))  # Maximizamos
@@ -103,21 +116,27 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
 
+def generate_positive_sf():
+    return random.uniform(0.0001, 1e2)  # Genera un número en el rango [0.0001, 1e10]
+
+def generate_positive_dr():
+    return random.uniform(0.1, 1e2)  # Genera un número en el rango [0.1, 1e10]
+
 # Atributos: m_N,j,x, m_N,j,y son continuos, r es discreto
-toolbox.register("attr_m_Njx", random.uniform, 0, 10)
-toolbox.register("attr_m_Njy", random.uniform, 0, 10)
 toolbox.register("attr_r", random.randint, 0, 3)
+toolbox.register("attr_sf", generate_positive_sf)
+toolbox.register("attr_dr", generate_positive_dr)
 
 # Un individuo es una lista de esos atributos
 toolbox.register("individual", tools.initCycle, creator.Individual,
-                 (toolbox.attr_m_Njx, toolbox.attr_m_Njy, toolbox.attr_r), n=1)
+                 (toolbox.attr_r, toolbox.attr_sf, toolbox.attr_dr), n=1)
 
 # La población es una lista de individuos
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 
 # Operadores genéticos
 toolbox.register("mate", tools.cxBlend, alpha=0.5)
-toolbox.register("mutate", tools.mutPolynomialBounded, low=[0, 0, 0], up=[10, 10, 3], eta=0.1, indpb=0.1)
+toolbox.register("mutate", tools.mutPolynomialBounded, low=[0, 0.0001, 0.1], up=[3, 4, 5], eta=1, indpb=0.1)
 toolbox.register("select", tools.selTournament, tournsize=3)
 toolbox.register("evaluate", evaluate)
 
@@ -128,22 +147,31 @@ def main():
     toolbox.register("map", pool.map)  # Reemplazar el método map con el de multiprocessing
 
     population = toolbox.population(n=100)
+    for i, ind in enumerate(population):
+        print(f"Individuo {i}: {ind}")  # Esto imprimirá cada individuo y sus atributos
+
     NGEN = 40
     CXPB, MUTPB = 0.5, 0.2
 
     # Variables para early stopping
     improvement_threshold = 1e-5
+
     last_fitness = None
     generations_without_improvement = 0
 
     for gen in range(NGEN):
         # Aplicar cruzamiento y mutación
+        print(f"Generation: {gen}")
         offspring = algorithms.varAnd(population, toolbox, cxpb=CXPB, mutpb=MUTPB)
-        
+        print("Offspring generated", offspring)
+
+        # Aplicar restricciones a los individuos generados
+        for ind in offspring:
+            apply_constraints(ind)
+
         # Evaluar a la población de manera paralelizada
         fits = toolbox.map(toolbox.evaluate, offspring)
 
-        # Asignar fitness a los individuos
         for fit, ind in zip(fits, offspring):
             ind.fitness.values = fit
 
@@ -167,6 +195,12 @@ def main():
     best_ind = tools.selBest(population, 1)[0]
     print("Best individual is:", best_ind)
     print("with fitness:", best_ind.fitness.values[0])
+    optimal_objective_value = objective(best_ind)  # Llama a la función objetivo directamente
+    print("Optimal objective value:", optimal_objective_value)
+    constraint_value=constraint1(best_ind)
+    print("Constraint value:", constraint_value)
+    
+    
 
     # Cerrar el pool de procesos
     pool.close()
