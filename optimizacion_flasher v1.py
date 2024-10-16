@@ -11,8 +11,10 @@ epsilon = 10 * np.pi / 250
 eta_variable = (np.pi / m) - (epsilon / 2)
 h = 35
 distancia_k = dk(h, epsilon, m)
+grosor=0.4 #corregir sumando parte de los pliegues -quizas-
 
 def N(r, s_f):
+    #calcula el numero de puntos p(i,j)
     r=int(r)
     sum_d = sum(e_distance(i, i + 1) for i in range(r))
     return int((s_f * sum_d) / distancia_k)
@@ -54,23 +56,28 @@ def r_i_j(params):
         desplazamiento = direccion * remanente
         punto_actual = p_start + desplazamiento
         if np.iscomplexobj(punto_actual):
-            print(f"punto_actual es complejo AAAAAAAAAA: {punto_actual}")
+            print(f"punto_actual es complejo: {punto_actual}")
     r_i_j_cache[params_tuple] = punto_actual
     return punto_actual
 
 # Definir la función objetivo a maximizar
 def objective(individual):
-    r, sf, dr = individual
+    """distancia euclidiana hasta un punto final que define desde 
+    un extremo a otro (diametro, pero no área de circulo)"""
+    r, sf= individual
     n = N(r, sf)
-    m_Njx, m_Njy = r_i_j((n, 0, m, r, delta, alpha_variable, epsilon, h, sf))  # Añadir sf aquí
+    m_Njx, m_Njy = r_i_j((n, 0, m, r, delta, alpha_variable, epsilon, h, sf))  
     return 2 * np.sqrt(m_Njx**2 + m_Njy**2)  
 
-# Definir las restricciones como penalizaciones
 def constraint1(individual):
-    r, sf, dr = individual  # Obtener el valor de r de 'individual'
-    r_cc = 1 * sf  # Calcular r_cc
-    t = dr * r_cc
-    return max(0, 64 - 2 * (m * (m + 1) * t * np.floor(r / m) + (r % m) * ((r % m) + 1) * t + r_cc))
+    r, sf = individual  # Obtener el valor de r de 'individual'
+    diametroplegado = diametro_plegado(r, 0, m, delta, alpha_variable, epsilon, h, sf, grosor)
+    
+    # Si el diámetro plegado excede 64, penalizar fuertemente
+    if diametroplegado > 60:
+        return (diametroplegado - 60) ** 3  # Penalización cuadrática para valores mayores a 64
+    else:
+        return 0  # No hay penalización si está dentro del límite
 
 # Penalización por violación de restricciones
 def penalty(individual):
@@ -92,17 +99,12 @@ def evaluate(individual):
 def apply_constraints(individual):
     # Aquí se pueden aplicar las restricciones específicas, por ejemplo:
     individual[0] = int(round(individual[0]))  # Redondear r
-    individual[0] = max(1, min(individual[0], 3))  # Asegurar que esté entre 1 y 3
+    individual[0] = max(1, min(individual[0], 4))  # Asegurar que esté entre 1 y 3
     sf_lower_bound = 0.0001
-    sf_upper_bound = 4  # Ajusta este valor según tus necesidades
-    dr_lower_bound = 0.1
-    dr_upper_bound = 5  # Ajusta este valor según tus necesidades
+    sf_upper_bound = 80
 
     # Asegúrate de que sf sea positivo y esté dentro de los límites
     individual[1] = max(sf_lower_bound, min(individual[1], sf_upper_bound))
-
-    # Asegúrate de que dr sea positivo y esté dentro de los límites
-    individual[2] = max(dr_lower_bound, min(individual[2], dr_upper_bound))
 
 
 SEED = 42
@@ -117,19 +119,15 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 def generate_positive_sf():
-    return random.uniform(0.0001, 1e2)  # Genera un número en el rango [0.0001, 1e10]
-
-def generate_positive_dr():
-    return random.uniform(0.1, 1e2)  # Genera un número en el rango [0.1, 1e10]
+    return random.uniform(0.0001, 80)  # Genera un número en el rango
 
 # Atributos: m_N,j,x, m_N,j,y son continuos, r es discreto
-toolbox.register("attr_r", random.randint, 0, 3)
+toolbox.register("attr_r", random.randint, 0, 4)
 toolbox.register("attr_sf", generate_positive_sf)
-toolbox.register("attr_dr", generate_positive_dr)
 
 # Un individuo es una lista de esos atributos
 toolbox.register("individual", tools.initCycle, creator.Individual,
-                 (toolbox.attr_r, toolbox.attr_sf, toolbox.attr_dr), n=1)
+                 (toolbox.attr_r, toolbox.attr_sf), n=1)
 
 # La población es una lista de individuos
 toolbox.register("population", tools.initRepeat, list, toolbox.individual)
@@ -199,7 +197,8 @@ def main():
     print("Optimal objective value:", optimal_objective_value)
     constraint_value=constraint1(best_ind)
     print("Constraint value:", constraint_value)
-    
+    diametro=diametro_plegado(best_ind[0], 0, m, delta, alpha_variable, epsilon, h, best_ind[1], grosor)
+    print("Diametro plegado:", diametro)
     
 
     # Cerrar el pool de procesos
