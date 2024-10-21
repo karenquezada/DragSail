@@ -112,28 +112,18 @@ def encontrar_indice(modulos, distancia_k):
     print("Verificar que el i solicitado caiga en los i totales, usando v4")
     return -1  
 
-def nivel_p(i, modulos, distancia_k):
+def niveles(i, modulos, distancia_k):
     # Usar los módulos ya calculados y pasados como argumento
     suma_modulos = sum(modulos[:i])
     multiplo_dk = int(np.floor(suma_modulos / distancia_k))
     return multiplo_dk + 1
 
 def diametro_plegado(i_final, j, m, delta, alpha, epsilon, altura, sf, grosor):
-    # Calcular los módulos y distancia_k una sola vez
-    distancia_k = dk(altura, epsilon, m)    
-    modulos, _, _ = lista_modulos(j, i_final, m, delta, alpha, epsilon, distancia_k, sf)
-
-    # Calcular el nivel_p(i_final, ...) fuera del bucle
-    nivel_final = nivel_p(i_final, modulos, distancia_k)
-
-    # Inicializar acumulación de grosores
-    acumulacion_grosores = []
-    for i in range(1, i_final + 1):
-        # Obtener el nivel de p(i, j)
-        nivel = nivel_p(i, modulos, distancia_k)
-        grosor_de_ese_p = nivel * 2
-        acumulacion_grosores.append(grosor_de_ese_p)
-    
-    # Calcular el diámetro una vez fuera del bucle
-    diametro = ((sum(acumulacion_grosores) - nivel_final) * grosor + sf / 2) * 2
-    return diametro
+    eta=(np.pi/m)-(epsilon/2)
+    nivel = niveles(i_final, lista_modulos(j, i_final, m, delta, alpha, epsilon, dk(altura, epsilon, m), sf)[0], dk(altura, epsilon, m))
+    x = grosor * nivel * 2
+    largo_ultimo = lista_modulos(j, i_final, m, delta, alpha, epsilon, dk(altura, epsilon, m), sf)[0][i_final - 1]
+    largo_trigonometrico = largo_ultimo * np.cos(eta)
+    lado_a = x + largo_trigonometrico
+    diagonal = np.sqrt(2) * lado_a
+    return diagonal

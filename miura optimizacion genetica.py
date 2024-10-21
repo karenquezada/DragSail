@@ -20,6 +20,8 @@ def custom_crossover(ind1, ind2):
     ind2[4] = round(ind2[4] * 2) / 2  # nh (múltiplo de 0.5)
 
     return ind1, ind2
+
+
 # Definir la función objetivo
 def objetivo(theta):
     w, h, alpha, nv, nh = theta[0], theta[1], theta[2], theta[3], theta[4]
@@ -27,85 +29,92 @@ def objetivo(theta):
     
     # Calcular el área plegada
     area_plegada = (w * h / (h**2 + d**2)) * (d**2 + (2 * w * nh - 3 * w) * d + h**2)
-    # if area_plegada < 0:
-    #     area_plegada = 0
 
     # Cálculo del resultado base
     resultado_final = np.sqrt(max(0, 20 * (w * h * nv * nh))) + (5 * np.sqrt(area_plegada))
-    
-    # Inicializar penalización
-    penalizacion = 0
-
-    restr1 = restriccion1(theta)
-    restr2 = restriccion2(theta)
-    restr3 = restriccion3(theta)
-    restr4 = restriccion4(theta)
-    restr5 = restriccion5(theta)
-    restr6 = restriccion6(theta)
-
-    print(f"Evaluando theta: {theta}")
-    print(f"Restricciones: 1: {restr1}, 2: {restr2}, 3: {restr3}, 4: {restr4}, 5: {restr5}, 6: {restr6}")
-
-    if restr1 < 0:  # ancho
-        penalizacion += abs(restr1) * 10000
-    
-    if restr2 < 0:  # largo
-        penalizacion += abs(restr2) * 10000
-    
-    if restr3 < 0:  # superposición
-        penalizacion += abs(restr3) * 1000
-    
-    if restr4 < 0:  # alto
-        penalizacion += abs(restr4) * 10000
-    
-    if restr5 < 0:  # separaciones
-        penalizacion += abs(restr5) * 500  # Penalización menor
-    
-    if restr6 < 0:  # alto desplegado
-        penalizacion += abs(restr6) * 500  # Penalización menor
-
-    # Sumar la penalización al resultado final
-    resultado_final += penalizacion
-
-    return resultado_final,
-
+    return resultado_final
 
 def restriccion1(theta):
     #ancho plegado cabe en el cubesat
     #considerando 15 mm de espacio disponible
     nv=theta[3]
-    t=0.5
-    return 15-(4*nv*t)
+    t=0.4
+    dif=13-(8*nv*t)
+    if dif<0:
+        return abs(dif)**7
+    else:
+        return 0
 
 def restriccion2(theta): 
-    #largo plegado cabe en el cubesat
+    # largo plegado cabe en el cubesat
     nh, w, alpha = theta[4], theta[0], theta[2]
-    return 200 - (nh * np.sqrt(2 * (1 - np.cos(np.pi - 2 * np.radians(alpha)))) * w + w + w * np.cos(np.radians(alpha)))
+    dif = 200 - (nh * np.sqrt(2 * (1 - np.cos(np.pi - 2 * np.radians(alpha)))) * w + w + w * np.cos(np.radians(alpha)))
+    if dif < 0:
+        return abs(dif) ** 10
+    else:
+        return 0
 
 def restriccion3(theta): 
-    #no hay superposicion de capas
+    # no hay superposicion de capas
     w, h, alpha = theta[0], theta[1], theta[2]
-    return w * np.sqrt(2 * (1 + np.cos(2 * np.radians(alpha)))) - (h / np.sin(np.radians(alpha)))
+    dif = w * np.sqrt(2 * (1 + np.cos(2 * np.radians(alpha)))) - (h / np.sin(np.radians(alpha)))
+    if dif < 0:
+        return abs(dif) ** 3
+    else:
+        return 0
 
 def restriccion4(theta):  
-    #alto plegado cabe en el cubesat
+    #alto cabe en el cubesat esto es por trigonometria
     w, alpha = theta[0], theta[2]
-    return 100 - w * np.sin(np.radians(alpha))
+    dif = 100 - w * np.sin(np.radians(alpha))
+    if dif < 0:
+        return abs(dif) ** 5
+    else:
+        return 0
 
 def restriccion5(theta): 
-    #no hay separaciones al plegar
+    # no hay separaciones al plegar
     w, h = theta[0], theta[1]
-    return h - w
+    dif = h - w
+    if dif < 0:
+        return abs(dif) ** 2  # Penalización menor
+    else:
+        return 0
 
 def restriccion6(theta):
     #alto desplegado es menor a 300 (depende del mecanismo de despliegue) 
     w, h, nv, nh, alpha = theta[0], theta[1], theta[3], theta[4], theta[2]
-    return 300 - 2 * h * nv
+    dif = 300 - 2 * h * nv
+    if dif < 0:
+        return abs(dif) ** 5  # Penalización menor
+    else:
+        return 0
+
+def calcular_difs(theta):
+    nv, nh, w, h, alpha = theta[3], theta[4], theta[0], theta[1], theta[2]
+    #ancho, largo, no superposicion, alto, no separaciones, alto desplegado
+    dif1 = 15 - (8 * nv * 0.4)
+    dif2 = 200 - (nh * np.sqrt(2 * (1 - np.cos(np.pi - 2 * np.radians(alpha)))) * w + w + w * np.cos(np.radians(alpha)))
+    dif3 = w * np.sqrt(2 * (1 + np.cos(2 * np.radians(alpha)))) - (h / np.sin(np.radians(alpha)))
+    dif4 = 100 - w * np.sin(np.radians(alpha))
+    dif5 = h - w
+    dif6 = 300 - 2 * h * nv
+    
+    return dif1, dif2, dif3, dif4, dif5, dif6
+
+def penalty(theta):
+    return restriccion1(theta) + restriccion2(theta) + restriccion3(theta) + restriccion4(theta) + restriccion5(theta) + restriccion6(theta)
+ 
+def evaluate(theta):
+    obj_value = objetivo(theta)
+    penalties = penalty(theta)
+    return obj_value - penalties,
 
 # Función para aplicar restricciones
 def apply_constraints(individual):
+    #w, h, alpha, nv, nh = theta[0], theta[1], theta[2], theta[3], theta[4]
     # Restringir w (ancho) y h (altura) a [1, 100]
-    individual[0] = max(10, min(individual[0], 15))
+    individual[0] = max(25, min(individual[0], 35))
     individual[1] = max(10, min(individual[1], 25))
     # Restringir alpha a [1, 90]
     individual[2] = (max(40, min(individual[2], 60)))
@@ -114,8 +123,8 @@ def apply_constraints(individual):
     individual[4] = max(2, min(round(individual[4] * 2) / 2, 6))  # nh
 
 SEED = 42
-# random.seed(SEED)
-# np.random.seed(SEED)
+random.seed(SEED)
+np.random.seed(SEED)
 
 # Crear el tipo de problema de optimización
 creator.create("FitnessMax", base.Fitness, weights=(1.0,))
@@ -124,7 +133,7 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 def generate_positive_w():
-    return random.uniform(10, 15)  # Ajusta el rango según tus necesidades
+    return random.uniform(25, 35)  # Ajusta el rango según tus necesidades
 
 def generate_positive_h():
     return random.uniform(10, 25)  # Ajusta el rango según tus necesidades
@@ -133,10 +142,10 @@ def generate_positive_alpha():
     return random.uniform(40, 60)  # Ajusta el rango según tus necesidades
 
 def generate_integer_nv():
-    return random.randint(2, 10)  # Ajusta el rango según tus necesidades
+    return random.randint(2, 6)  # Ajusta el rango según tus necesidades
 
 def generate_integer_nh():
-    return random.randint(2, 10)  # Ajusta el rango según tus necesidades
+    return random.randint(2, 6)  # Ajusta el rango según tus necesidades
 
 toolbox.register("attr_w", generate_positive_w)
 toolbox.register("attr_h", generate_positive_h)
@@ -153,7 +162,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 toolbox.register("mate", custom_crossover)
 toolbox.register("mutate", tools.mutPolynomialBounded, low=[0, 0.0001, 0.1], up=[3, 4, 5], eta=1, indpb=0.1)
 toolbox.register("select", tools.selTournament, tournsize=3)
-toolbox.register("evaluate", objetivo)
+toolbox.register("evaluate", evaluate)
 
 
 # Función principal
@@ -176,7 +185,7 @@ def main():
     generations_without_improvement = 0
 
     for gen in range(NGEN):
-        print(f"Generation: {gen}")
+        #print(f"Generation: {gen}")
 
         # Aplicar cruzamiento y mutación
         offspring = algorithms.varAnd(population, toolbox, cxpb=CXPB, mutpb=MUTPB)
@@ -211,6 +220,8 @@ def main():
     best_ind = tools.selBest(population, 1)[0]
     print("Best individual is:", best_ind)
     print("with fitness:", best_ind.fitness.values[0])
+    restricciones=calcular_difs(best_ind)
+    print("Restricciones",restricciones)
     miura_drawer(best_ind[0], best_ind[1], best_ind[2], best_ind[3], best_ind[4])
     # Cerrar el pool de procesos
     pool.close()

@@ -11,7 +11,7 @@ epsilon = 10 * np.pi / 250
 eta_variable = (np.pi / m) - (epsilon / 2)
 h = 31
 distancia_k = dk(h, epsilon, m)
-grosor=0.4 #corregir sumando parte de los pliegues -quizas-
+grosor=0.02 #corregir sumando parte de los pliegues -quizas-
 
 # Definir la función objetivo a maximizar
 def objective(individual):
@@ -24,10 +24,9 @@ def objective(individual):
 def constraint1(individual):
     r, sf = individual  # Obtener el valor de r de 'individual'
     diametroplegado = diametro_plegado(r, 0, m, delta, alpha_variable, epsilon, h, sf, grosor)
-    
-    # Si el diámetro plegado excede 64, penalizar fuertemente
+
     if diametroplegado > 61:
-        return (diametroplegado - 61) ** 3  # Penalización cuadrática para valores mayores a 64
+        return (diametroplegado - 61) ** 3 
     else:
         return 0  # No hay penalización si está dentro del límite
 
@@ -51,7 +50,7 @@ def evaluate(individual):
 def apply_constraints(individual):
     # Aquí se pueden aplicar las restricciones específicas, por ejemplo:
     individual[0] = int(round(individual[0]))  # Redondear r
-    individual[0] = max(1, min(individual[0], 5))  # Asegurar que esté entre 1 y 3
+    individual[0] = max(1, min(individual[0], 7))  # Asegurar que esté entre 1 y 3
     sf_lower_bound = 0.0001
     sf_upper_bound = 80
 
@@ -74,7 +73,7 @@ def generate_positive_sf():
     return random.uniform(0.0001, 80)  # Genera un número en el rango
 
 # Atributos: m_N,j,x, m_N,j,y son continuos, r es discreto
-toolbox.register("attr_r", random.randint, 1, 5)
+toolbox.register("attr_r", random.randint, 1, 7)
 toolbox.register("attr_sf", generate_positive_sf)
 
 # Un individuo es una lista de esos atributos
@@ -111,9 +110,9 @@ def main():
 
     for gen in range(NGEN):
         # Aplicar cruzamiento y mutación
-        print(f"Generation: {gen}")
+        #print(f"Generation: {gen}")
         offspring = algorithms.varAnd(population, toolbox, cxpb=CXPB, mutpb=MUTPB)
-        print("Offspring generated", offspring)
+        #print("Offspring generated", offspring)
 
         # Aplicar restricciones a los individuos generados
         for ind in offspring:
