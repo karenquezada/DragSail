@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 def miura_drawer(w, h, alpha, nv, nh):
     angulo = np.deg2rad(alpha)
-    d = h / np.tan(alpha)
+    d = h / np.tan(angulo)
     
     # Redondear nv y nh al 0.5 más cercano
     nv = round(nv * 2) / 2
@@ -93,3 +93,5 @@ def miura_drawer(w, h, alpha, nv, nh):
 
 
     plt.show()
+
+#miura_drawer(34.23, 25, 58, 98.5, 4)

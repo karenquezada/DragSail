@@ -38,8 +38,8 @@ def restriccion1(theta):
     #ancho plegado cabe en el cubesat
     #considerando 15 mm de espacio disponible
     nv=theta[3]
-    t=0.4
-    dif=13-(8*nv*t)
+    t=0.2
+    dif=13.2-(8*nv*t)
     if dif<0:
         return abs(dif)**7
     else:
@@ -59,7 +59,7 @@ def restriccion3(theta):
     w, h, alpha = theta[0], theta[1], theta[2]
     dif = w * np.sqrt(2 * (1 + np.cos(2 * np.radians(alpha)))) - (h / np.sin(np.radians(alpha)))
     if dif < 0:
-        return abs(dif) ** 3
+        return abs(dif) ** 5
     else:
         return 0
 
@@ -81,19 +81,19 @@ def restriccion5(theta):
     else:
         return 0
 
-def restriccion6(theta):
-    #alto desplegado es menor a 300 (depende del mecanismo de despliegue) 
-    w, h, nv, nh, alpha = theta[0], theta[1], theta[3], theta[4], theta[2]
-    dif = 300 - 2 * h * nv
-    if dif < 0:
-        return abs(dif) ** 5  # Penalización menor
-    else:
-        return 0
+# def restriccion6(theta):
+#     # #alto desplegado es menor a 300 (depende del mecanismo de despliegue) 
+#     # w, h, nv, nh, alpha = theta[0], theta[1], theta[3], theta[4], theta[2]
+#     # dif = 300 - 2 * h * nv
+#     # if dif < 0:
+#     #     return abs(dif) ** 3  # Penalización menor
+#     # else:
+#     #     return 0
 
 def calcular_difs(theta):
     nv, nh, w, h, alpha = theta[3], theta[4], theta[0], theta[1], theta[2]
     #ancho, largo, no superposicion, alto, no separaciones, alto desplegado
-    dif1 = 15 - (8 * nv * 0.4)
+    dif1 = 15 - (8 * nv * 0.2)
     dif2 = 200 - (nh * np.sqrt(2 * (1 - np.cos(np.pi - 2 * np.radians(alpha)))) * w + w + w * np.cos(np.radians(alpha)))
     dif3 = w * np.sqrt(2 * (1 + np.cos(2 * np.radians(alpha)))) - (h / np.sin(np.radians(alpha)))
     dif4 = 100 - w * np.sin(np.radians(alpha))
@@ -103,7 +103,7 @@ def calcular_difs(theta):
     return dif1, dif2, dif3, dif4, dif5, dif6
 
 def penalty(theta):
-    return restriccion1(theta) + restriccion2(theta) + restriccion3(theta) + restriccion4(theta) + restriccion5(theta) + restriccion6(theta)
+    return restriccion1(theta) + restriccion2(theta) + restriccion3(theta) + restriccion4(theta) + restriccion5(theta)
  
 def evaluate(theta):
     obj_value = objetivo(theta)
@@ -114,13 +114,13 @@ def evaluate(theta):
 def apply_constraints(individual):
     #w, h, alpha, nv, nh = theta[0], theta[1], theta[2], theta[3], theta[4]
     # Restringir w (ancho) y h (altura) a [1, 100]
-    individual[0] = max(25, min(individual[0], 35))
-    individual[1] = max(10, min(individual[1], 25))
+    individual[0] = max(30, min(individual[0], 40))
+    individual[1] = max(5, min(individual[1], 25))
     # Restringir alpha a [1, 90]
     individual[2] = (max(40, min(individual[2], 60)))
     # Restringir nv (número de divisiones verticales) y nh (número de divisiones horizontales) a [1, 10]
-    individual[3] = max(2, min(round(individual[3] * 2) / 2, 6))  # nv
-    individual[4] = max(2, min(round(individual[4] * 2) / 2, 6))  # nh
+    individual[3] = max(4, min(round(individual[3] * 2) / 2, 30))  # nv
+    individual[4] = max(4, min(round(individual[4] * 2) / 2, 30))  # nh
 
 SEED = 42
 random.seed(SEED)
@@ -133,19 +133,19 @@ creator.create("Individual", list, fitness=creator.FitnessMax)
 toolbox = base.Toolbox()
 
 def generate_positive_w():
-    return random.uniform(25, 35)  # Ajusta el rango según tus necesidades
+    return random.uniform(30, 40)  # Ajusta el rango según tus necesidades
 
 def generate_positive_h():
-    return random.uniform(10, 25)  # Ajusta el rango según tus necesidades
+    return random.uniform(5, 25)  # Ajusta el rango según tus necesidades
 
 def generate_positive_alpha():
     return random.uniform(40, 60)  # Ajusta el rango según tus necesidades
 
 def generate_integer_nv():
-    return random.randint(2, 6)  # Ajusta el rango según tus necesidades
+    return random.randint(4, 30)  # Ajusta el rango según tus necesidades
 
 def generate_integer_nh():
-    return random.randint(2, 6)  # Ajusta el rango según tus necesidades
+    return random.randint(4, 30)  # Ajusta el rango según tus necesidades
 
 toolbox.register("attr_w", generate_positive_w)
 toolbox.register("attr_h", generate_positive_h)
@@ -210,7 +210,7 @@ def main():
         else:
             generations_without_improvement = 0
 
-        if generations_without_improvement >= 5:  # Parar después de 5 generaciones sin mejora
+        if generations_without_improvement >= 15:  # Parar después de 5 generaciones sin mejora
             print(f"Early stopping at generation: {gen}")
             break
 
@@ -231,3 +231,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+                                                                                                                                                               

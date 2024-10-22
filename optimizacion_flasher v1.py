@@ -7,11 +7,11 @@ from flasher_lib import *
 m = 4
 delta = np.pi / 3.7
 alpha_variable = np.pi / 2 - np.pi / m
-epsilon = 10 * np.pi / 250
+epsilon = 0.05236
 eta_variable = (np.pi / m) - (epsilon / 2)
 h = 31
 distancia_k = dk(h, epsilon, m)
-grosor=0.02 #corregir sumando parte de los pliegues -quizas-
+grosor=0.2 
 
 # Definir la función objetivo a maximizar
 def objective(individual):
