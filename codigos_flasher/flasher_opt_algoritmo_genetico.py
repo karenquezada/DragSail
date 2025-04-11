@@ -3,6 +3,7 @@ from deap import base, creator, tools, algorithms
 import random
 from multiprocessing import Pool
 from flasher_lib import *
+import matplotlib.pyplot as plt
 
 m = 4
 delta = np.pi / 3.7
@@ -48,13 +49,12 @@ def evaluate(individual):
 
 # Función para aplicar las restricciones a los individuos
 def apply_constraints(individual):
-    # Aquí se pueden aplicar las restricciones específicas, por ejemplo:
     individual[0] = int(round(individual[0]))  # Redondear r
     individual[0] = max(1, min(individual[0], 7))  # Asegurar que esté entre 1 y 3
     sf_lower_bound = 0.0001
     sf_upper_bound = 80
 
-    # Asegúrate de que sf sea positivo y esté dentro de los límites
+   
     individual[1] = max(sf_lower_bound, min(individual[1], sf_upper_bound))
 
 
@@ -64,7 +64,7 @@ np.random.seed(SEED)
 
 
 # Crear la estructura de los individuos y la población
-creator.create("FitnessMax", base.Fitness, weights=(1.0,))  # Maximizamos
+creator.create("FitnessMax", base.Fitness, weights=(1.0,))  
 creator.create("Individual", list, fitness=creator.FitnessMax)
 
 toolbox = base.Toolbox()
@@ -94,23 +94,26 @@ def main():
     # Configuración de paralelización
     pool = Pool()  # Crear un pool de procesos
     toolbox.register("map", pool.map)  # Reemplazar el método map con el de multiprocessing
+    n_individuos=500
 
-    population = toolbox.population(n=100)
-    for i, ind in enumerate(population):
-        print(f"Individuo {i}: {ind}")  # Esto imprimirá cada individuo y sus atributos
+    population = toolbox.population(n_individuos)
+   
 
-    NGEN = 40
-    CXPB, MUTPB = 0.5, 0.2
+    NGEN = 1000
+    CXPB, MUTPB = 0.2, 0.3
 
     # Variables para early stopping
     improvement_threshold = 1e-5
 
+    #Listas para graficar la evolucion de las soluciones.
     last_fitness = None
-    generations_without_improvement = 0
+    avg_fitness_per_gen=[]
+    best_fitness_per_gen=[]
+    std_fitness_per_gen=[]
 
     for gen in range(NGEN):
-        # Aplicar cruzamiento y mutación
-        #print(f"Generation: {gen}")
+        #elitismo en la gen actual
+        elite = tools.selBest(population, 1)[0]
         offspring = algorithms.varAnd(population, toolbox, cxpb=CXPB, mutpb=MUTPB)
         #print("Offspring generated", offspring)
 
@@ -124,11 +127,24 @@ def main():
         for fit, ind in zip(fits, offspring):
             ind.fitness.values = fit
 
+        #reemplazo del peor individuo
+        worst_index = np.argmin([ind.fitness.values[0] for ind in offspring])
+        offspring[worst_index] = toolbox.clone(elite)
+
         # Seleccionar la siguiente generación
         population = toolbox.select(offspring, k=len(population))
 
         # Early stopping: Verificar si ha habido mejora significativa
         best_ind = tools.selBest(population, 1)[0]
+        best_fitness_per_gen.append(best_ind.fitness.values[0])
+        avg_fitness_per_gen.append(np.mean([ind.fitness.values[0] for ind in population]))
+        std_fitness_per_gen.append(np.std([ind.fitness.values[0] for ind in population]))
+
+
+
+        print(f"GENERACION {gen}, Mejor fitness: {best_fitness_per_gen[-1]:.4f} Promedio de fitness :{avg_fitness_per_gen[-1]:.4f} Desv estándar {std_fitness_per_gen[-1]:.4f}")
+
+        #print(f"Generación {gen}: mejor fitness = {max(fits_values):.4f}, fitness promedio = {avg_fitness:.4f} ") 
         if last_fitness is not None and abs(best_ind.fitness.values[0] - last_fitness) < improvement_threshold:
             generations_without_improvement += 1
         else:
@@ -151,6 +167,35 @@ def main():
     diametro=diametro_plegado(best_ind[0], 0, m, delta, alpha_variable, epsilon, h, best_ind[1], grosor)
     print("Diametro plegado:", diametro)
     
+    plt.figure(figsize=(8,5))
+    generations = range(1, len(best_fitness_per_gen))
+    # plt.plot(np.abs(best_fitness_per_gen[1:]), label="Mejor Fitness", color="blue")
+    # plt.plot(np.abs(avg_fitness_per_gen[1:]), label="Fitness Promedio", color="orange")
+    plt.plot((best_fitness_per_gen[1:]), label="Mejor Fitness", color="blue")
+    plt.plot((avg_fitness_per_gen[1:]), label="Fitness Promedio", color="orange")
+    plt.plot(std_fitness_per_gen[1:], label="Desviación Estándar", color="green")
+
+    plt.xlabel("Generaciones")
+    plt.ylabel("Valor de Fitness")
+    plt.title("Evolución de la Solución, origami Flasher")
+    param_text = (
+    f"N° Individuos: {n_individuos}\n"
+    f"N° Generaciones: {NGEN}\n"
+    f"Tasa de Cruza (CXPB): {CXPB}\n"
+    f"Tasa de Mutación (MUTPB): {MUTPB}"
+)
+
+# Añadir como caja de texto en la parte superior derecha
+    plt.text(0.98, 0.81, param_text,
+         transform=plt.gca().transAxes,
+         fontsize=10, va='bottom', ha='right',
+         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightgray", edgecolor="black", alpha=0.8))
+
+    plt.legend()
+    plt.grid()
+    plt.yscale('log')  # Cambiar el eje Y a logarítmico
+    plt.xlim(0, max(generations))
+    plt.show()
 
     # Cerrar el pool de procesos
     pool.close()

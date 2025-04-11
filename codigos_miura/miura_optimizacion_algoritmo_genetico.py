@@ -3,6 +3,7 @@ from deap import base, creator, tools, algorithms
 import random
 from multiprocessing import Pool
 from miura_drawer import miura_drawer
+import matplotlib.pyplot as plt
 
 def custom_crossover(ind1, ind2):
     # Cruza las variables continuas (w y h)
@@ -104,11 +105,35 @@ def calcular_difs(theta):
 
 def penalty(theta):
     return restriccion1(theta) + restriccion2(theta) + restriccion3(theta) + restriccion4(theta) + restriccion5(theta)
- 
+
+def normalizacion_fitness(fitness, max_fit, min_fit):
+    if max_fit-min_fit:
+        return (fitness-min_fit)/(max_fit-min_fit)
+    else:
+        return fitness
+
 def evaluate(theta):
     obj_value = objetivo(theta)
     penalties = penalty(theta)
-    return obj_value - penalties,
+    result=obj_value - penalties
+    return result,
+
+
+
+# def evaluate(theta):
+#     obj_value = objetivo(theta)
+#     penalties = penalty(theta)
+#     result = obj_value - penalties  # Este es el fitness "crudo"
+
+#     # Normalizar el fitness
+#     global max_fitness_value, min_fitness_value
+#     max_fitness_value = max(max_fitness_value, result)
+#     min_fitness_value = min(min_fitness_value, result)
+
+#     normalized_fitness = normalizacion_fitness(result, max_fitness_value, min_fitness_value)
+    
+#     return normalized_fitness,
+
 
 # Función para aplicar restricciones
 def apply_constraints(individual):
@@ -161,7 +186,7 @@ toolbox.register("population", tools.initRepeat, list, toolbox.individual)
 #toolbox.register("mate", tools.cxBlend, alpha=0.5)
 toolbox.register("mate", custom_crossover)
 #toolbox.register("mutate", tools.mutPolynomialBounded, low=[0, 0.0001, 0.1], up=[3, 4, 5], eta=1, indpb=0.1)
-toolbox.register("select", tools.selTournament, tournsize=3)
+toolbox.register("select", tools.selTournament, tournsize=2)
 toolbox.register("evaluate", evaluate)
 
 
@@ -171,22 +196,26 @@ def main():
     pool = Pool()
     #toolbox.register("map", pool.map)
 
-    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=1, indpb=0.2)
-
+    toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=2, indpb=0.2)
+    n_individuos=30
     # Población inicial
-    population = toolbox.population(n=100)
-    
-    NGEN = 100
-    CXPB, MUTPB = 0.5, 0.2
+    population = toolbox.population(n_individuos)
+     
+    NGEN = 1000
+    CXPB, MUTPB = 0.2, 0.3
     
     # Variables para early stopping
-    improvement_threshold = 1e-5
+    improvement_threshold = 1e-5                   
     last_fitness = None
     generations_without_improvement = 0
 
+    #Listas para graficar la evolucion de las soluciones.
+    best_fitness_per_gen=[]
+    avg_fitness_per_gen=[]
+    std_fitness_per_gen=[]
+    
     for gen in range(NGEN):
-        #print(f"Generation: {gen}")
-
+        elite = tools.selBest(population, 1)[0]
         # Aplicar cruzamiento y mutación
         offspring = algorithms.varAnd(population, toolbox, cxpb=CXPB, mutpb=MUTPB)
 
@@ -200,11 +229,25 @@ def main():
         for fit, ind in zip(fits, offspring):
             ind.fitness.values = fit
 
+        #reemplazo del peor individuo
+        worst_index = np.argmin([ind.fitness.values[0] for ind in offspring])
+        offspring[worst_index] = toolbox.clone(elite)
+        
+       
         # Seleccionar la siguiente generación
         population = toolbox.select(offspring, k=len(population))
 
         # Early stopping: Verificar si ha habido mejora significativa
         best_ind = tools.selBest(population, 1)[0]
+       
+        best_fitness_per_gen.append(best_ind.fitness.values[0])
+        std_fitness_per_gen.append(np.std([ind.fitness.values[0] for ind in population]))
+        avg_fitness_per_gen.append(np.mean([ind.fitness.values[0] for ind in population]))
+
+        print(f"GENERACION {gen}, Mejor fitness: {best_fitness_per_gen[-1]:.4f} Promedio de fitness :{avg_fitness_per_gen[-1]:.4f} Desv estándar {std_fitness_per_gen[-1]:.4f}")
+
+
+
         if last_fitness is not None and abs(best_ind.fitness.values[0] - last_fitness) < improvement_threshold:
             generations_without_improvement += 1
         else:
@@ -222,7 +265,37 @@ def main():
     print("with fitness:", best_ind.fitness.values[0])
     restricciones=calcular_difs(best_ind)
     print("Restricciones",restricciones)
-    miura_drawer(best_ind[0], best_ind[1], best_ind[2], best_ind[3], best_ind[4])
+    #miura_drawer(best_ind[0], best_ind[1], best_ind[2], best_ind[3], best_ind[4])
+
+    plt.figure(figsize=(8,5))
+    generations = range(1, len(best_fitness_per_gen))
+    generaciones_a_eliminar = 3
+    plt.plot(np.abs(best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
+    plt.plot(np.abs(avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
+    plt.plot(std_fitness_per_gen[1:], label="Desviación Estándar", color="green")
+    # plt.plot((best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
+    # plt.plot((avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
+    # plt.plot((min_fitness_per_gen[generaciones_a_eliminar:]), label="Peor Fitness", color="green")
+    plt.xlabel("Generaciones")
+    plt.ylabel("Valor de Fitness")
+    plt.title("Evolución de la Solución, origami Miura")
+    param_text = (
+    f"N° Individuos: {n_individuos}\n"
+    f"N° Generaciones: {NGEN}\n"
+    f"Tasa de Cruza (CXPB): {CXPB}\n"
+    f"Tasa de Mutación (MUTPB): {MUTPB}"
+)
+    plt.text(0.98, 0.8, param_text,
+         transform=plt.gca().transAxes,
+         fontsize=10, va='bottom', ha='right',
+         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightgray", edgecolor="black", alpha=0.8))
+
+    plt.legend()
+    plt.grid()
+    plt.yscale('log')  # Cambiar el eje Y a logarítmico
+    plt.xlim(0, max(generations))
+    plt.show()
+
     # Cerrar el pool de procesos
     pool.close()
     pool.join()
