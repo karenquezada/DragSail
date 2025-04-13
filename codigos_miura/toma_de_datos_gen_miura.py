@@ -2,7 +2,6 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from multiprocessing import Pool
-from miura_drawer import miura_drawer
 import matplotlib.pyplot as plt
 
 def custom_crossover(ind1, ind2):
@@ -82,14 +81,6 @@ def restriccion5(theta):
     else:
         return 0
 
-# def restriccion6(theta):
-#     # #alto desplegado es menor a 300 (depende del mecanismo de despliegue) 
-#     # w, h, nv, nh, alpha = theta[0], theta[1], theta[3], theta[4], theta[2]
-#     # dif = 300 - 2 * h * nv
-#     # if dif < 0:
-#     #     return abs(dif) ** 3  # Penalización menor
-#     # else:
-#     #     return 0
 
 def calcular_difs(theta):
     nv, nh, w, h, alpha = theta[3], theta[4], theta[0], theta[1], theta[2]
@@ -117,23 +108,6 @@ def evaluate(theta):
     penalties = penalty(theta)
     result=obj_value - penalties
     return result,
-
-
-
-# def evaluate(theta):
-#     obj_value = objetivo(theta)
-#     penalties = penalty(theta)
-#     result = obj_value - penalties  # Este es el fitness "crudo"
-
-#     # Normalizar el fitness
-#     global max_fitness_value, min_fitness_value
-#     max_fitness_value = max(max_fitness_value, result)
-#     min_fitness_value = min(min_fitness_value, result)
-
-#     normalized_fitness = normalizacion_fitness(result, max_fitness_value, min_fitness_value)
-    
-#     return normalized_fitness,
-
 
 # Función para aplicar restricciones
 def apply_constraints(individual):
@@ -191,7 +165,7 @@ toolbox.register("evaluate", evaluate)
 
 
 # Función principal
-def main():
+def main(MUTPB, mutpb_label, CXPB):
     # Crear un pool de procesos para paralelización
     pool = Pool()
     #toolbox.register("map", pool.map)
@@ -202,7 +176,6 @@ def main():
     population = toolbox.population(n_individuos)
      
     NGEN = 1000
-    CXPB, MUTPB = 0.2, 0.3
     
     # Variables para early stopping
     improvement_threshold = 1e-5                   
@@ -212,7 +185,6 @@ def main():
     #Listas para graficar la evolucion de las soluciones.
     best_fitness_per_gen=[]
     avg_fitness_per_gen=[]
-    std_fitness_per_gen=[]
     
     for gen in range(NGEN):
         elite = tools.selBest(population, 1)[0]
@@ -241,10 +213,7 @@ def main():
         best_ind = tools.selBest(population, 1)[0]
        
         best_fitness_per_gen.append(best_ind.fitness.values[0])
-        std_fitness_per_gen.append(np.std([ind.fitness.values[0] for ind in population]))
         avg_fitness_per_gen.append(np.mean([ind.fitness.values[0] for ind in population]))
-
-        print(f"GENERACION {gen}, Mejor fitness: {best_fitness_per_gen[-1]:.4f} Promedio de fitness :{avg_fitness_per_gen[-1]:.4f} Desv estándar {std_fitness_per_gen[-1]:.4f}")
 
 
 
@@ -267,41 +236,36 @@ def main():
     print("Restricciones",restricciones)
     #miura_drawer(best_ind[0], best_ind[1], best_ind[2], best_ind[3], best_ind[4])
 
-    plt.figure(figsize=(8,5))
-    generations = range(1, len(best_fitness_per_gen))
-    generaciones_a_eliminar = 3
-    plt.plot(np.abs(best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
-    plt.plot(np.abs(avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
-    plt.plot(std_fitness_per_gen[1:], label="Desviación Estándar", color="green")
-    # plt.plot((best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
-    # plt.plot((avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
-    # plt.plot((min_fitness_per_gen[generaciones_a_eliminar:]), label="Peor Fitness", color="green")
-    plt.xlabel("Generaciones")
-    plt.ylabel("Valor de Fitness")
-    plt.title("Evolución de la Solución, origami Miura")
-    param_text = (
-    f"N° Individuos: {n_individuos}\n"
-    f"N° Generaciones: {NGEN}\n"
-    f"Tasa de Cruza (CXPB): {CXPB}\n"
-    f"Tasa de Mutación (MUTPB): {MUTPB}"
-)
-    plt.text(0.98, 0.8, param_text,
-         transform=plt.gca().transAxes,
-         fontsize=10, va='bottom', ha='right',
-         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightgray", edgecolor="black", alpha=0.8))
-
-    plt.legend()
-    plt.grid()
-    plt.yscale('log')  # Cambiar el eje Y a logarítmico
-    plt.xlim(0, max(generations))
-    plt.show()
 
     # Cerrar el pool de procesos
     pool.close()
     pool.join()
 
+    # Guardar resultados en archivo .txt
+    with open(f"fitness_MUTPB_{mutpb_label}_Miura_{CXPB}.txt", "w") as f:
+        f.write("Generación\tMejor_Fitness\tFitness_Promedio\n")
+        for i, (b, a) in enumerate(zip(best_fitness_per_gen, avg_fitness_per_gen)):
+            f.write(f"{i}\t{b:.8f}\t{a:.8f}\n")
+
+    return best_fitness_per_gen, avg_fitness_per_gen
 
 
 if __name__ == "__main__":
-    main()
-                                                                                                                                                               
+    mutpb_values = np.arange(0.1, 1.0, 0.1)
+    cxpb_values= np.arange(0.1, 1.0, 0.1)
+    print(cxpb_values)
+    print(mutpb_values)
+    best_fitness_by_mutpb = []
+    for cruza in cxpb_values:
+        for mutpb in mutpb_values:
+            print(f"Ejecutando para MUTPB = {mutpb:.1f}, CXPB={cruza:.1f}")
+            best_fitness_per_gen, avg_fitness_per_gen = main(mutpb, f"{mutpb:.1f}",cruza)
+            best_fitness_by_mutpb.append(best_fitness_per_gen[-1])
+
+    # Resumen general
+    print("\nResumen de mejores fitness por valor de MUTPB:")
+    for mutpb, fit in zip(mutpb_values, best_fitness_by_mutpb):
+        print(f"MUTPB={mutpb:.1f}: fitness={fit:.8f}")
+
+
+                                                                                                                                                            
