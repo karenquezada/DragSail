@@ -89,22 +89,22 @@ toolbox.register("mutate", tools.mutPolynomialBounded, low=[0, 0.0001, 0.1], up=
 toolbox.register("select", tools.selTournament, tournsize=3)
 toolbox.register("evaluate", evaluate)
 
-# Algoritmo evolutivo con early stopping y multiprocessing
-def main(MUTPB, mutpb_label, CXPB):
-    pool = Pool()
+NGEN = 300
+CXPB, MUTPB = 0.2, 0.3
+population_sizes = [30, 50, 100, 500, 1000, 1500, 2000]
+
+resultados_mejor = {}
+resultados_promedio = {}
+
+def main(population_si):
+    pool=Pool()
     toolbox.register("map", pool.map)
-
-    n_individuos = 500
+    n_individuos = population_si
     population = toolbox.population(n_individuos)
-
     NGEN = 1000
     improvement_threshold = 1e-5
-
     last_fitness = None
     generations_without_improvement = 0
-
-    best_fitness_per_gen = []
-    avg_fitness_per_gen = []
 
     for gen in range(NGEN):
         elite = tools.selBest(population, 1)[0]
@@ -112,60 +112,50 @@ def main(MUTPB, mutpb_label, CXPB):
 
         for ind in offspring:
             apply_constraints(ind)
-
+    
         fits = toolbox.map(toolbox.evaluate, offspring)
         for fit, ind in zip(fits, offspring):
             ind.fitness.values = fit
 
         worst_index = np.argmin([ind.fitness.values[0] for ind in offspring])
         offspring[worst_index] = toolbox.clone(elite)
-
         population = toolbox.select(offspring, k=len(population))
 
-        fitness_values = [ind.fitness.values[0] for ind in population]
-        best_fitness = max(fitness_values)
-        avg_fitness = sum(fitness_values) / len(fitness_values)
-
-        best_fitness_per_gen.append(best_fitness)
-        avg_fitness_per_gen.append(avg_fitness)
-
+        best_ind = tools.selBest(population, 1)[0]
+        best_fitness = best_ind.fitness.values[0]
+        
         if last_fitness is not None and abs(best_fitness - last_fitness) < improvement_threshold:
             generations_without_improvement += 1
         else:
             generations_without_improvement = 0
-
-        if generations_without_improvement >= 5:
+        
+        if generations_without_improvement >= 15:
             break
 
         last_fitness = best_fitness
 
+    best_ind = tools.selBest(population, 1)[0]
+    avg_fitness = np.mean([ind.fitness.values[0] for ind in population])
+
     pool.close()
     pool.join()
 
-    # Guardar resultados en archivo .txt
-    with open(f"fitness_MUTPB_{mutpb_label}_Flasher_{CXPB}.txt", "w") as f:
-        f.write("Generación\tMejor_Fitness\tFitness_Promedio\n")
-        for i, (b, a) in enumerate(zip(best_fitness_per_gen, avg_fitness_per_gen)):
-            f.write(f"{i}\t{b:.8f}\t{a:.8f}\n")
-
-    return best_fitness_per_gen, avg_fitness_per_gen
-
+    return best_ind.fitness.values[0], avg_fitness
+       
 if __name__ == "__main__":
-    mutpb_values = np.arange(0.1, 1.0, 0.1)
-    cxpb_values= np.arange(0.5, 1.0, 0.1)
-    print(cxpb_values)
-    print(mutpb_values)
-    best_fitness_by_mutpb = []
-    for cruza in cxpb_values:
-        for mutpb in mutpb_values:
-            print(f"Ejecutando para MUTPB = {mutpb:.1f},  CXPB={cruza:.1f}")
-            best_fitness_per_gen, avg_fitness_per_gen = main(mutpb, f"{mutpb:.1f}",cruza)
-            best_fitness_by_mutpb.append(best_fitness_per_gen[-1])  # último valor de mejor fitness
+    for population_size in population_sizes:
+        best_fitness, avg_fitness = main(population_size)
+        resultados_mejor[population_size] = abs(best_fitness)
 
+        print(f"Mejor fitness para población {population_size}: {best_fitness:.8f}")
+        resultados_promedio[population_size] = abs(avg_fitness)
 
-    # Resumen general
-        print("\nResumen de mejores fitness por valor de MUTPB:")
-        for mutpb, fit in zip(mutpb_values, best_fitness_by_mutpb):
-            print(f"MUTPB={mutpb:.1f}: fitness={fit:.8f}")
-
- 
+    plt.figure(figsize=(10, 6))
+    plt.plot(population_sizes, list(resultados_mejor.values()), marker='o', label='Mejor Fitness')
+    plt.yscale('log')  # Escala logarítmica para el eje y
+    plt.title("Mejor Fitness por Generación, origami Flasher")
+    plt.xlabel("Generación")
+    plt.ylabel("Mejor Fitness (Escala Logarítmica)")
+    plt.legend()
+    plt.grid()
+    plt.show()
