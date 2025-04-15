@@ -169,11 +169,12 @@ def main():
     
     plt.figure(figsize=(8,5))
     generations = range(1, len(best_fitness_per_gen))
+    generaciones_a_eliminar = 2
     # plt.plot(np.abs(best_fitness_per_gen[1:]), label="Mejor Fitness", color="blue")
     # plt.plot(np.abs(avg_fitness_per_gen[1:]), label="Fitness Promedio", color="orange")
-    plt.plot((best_fitness_per_gen[1:]), label="Mejor Fitness", color="blue")
-    plt.plot((avg_fitness_per_gen[1:]), label="Fitness Promedio", color="orange")
-    plt.plot(std_fitness_per_gen[1:], label="Desviación Estándar", color="green")
+    plt.plot((best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
+    plt.plot((avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
+    plt.plot(std_fitness_per_gen[generaciones_a_eliminar:], label="Desviación Estándar", color="green")
 
     plt.xlabel("Generaciones")
     plt.ylabel("Valor de Fitness")
@@ -194,7 +195,7 @@ def main():
     plt.legend()
     plt.grid()
     plt.yscale('log')  # Cambiar el eje Y a logarítmico
-    plt.xlim(0, max(generations))
+    plt.xlim(generaciones_a_eliminar, max(generations))
     plt.show()
 
     # Cerrar el pool de procesos

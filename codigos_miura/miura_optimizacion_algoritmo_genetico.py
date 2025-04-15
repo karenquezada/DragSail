@@ -2,7 +2,6 @@ import numpy as np
 from deap import base, creator, tools, algorithms
 import random
 from multiprocessing import Pool
-from miura_drawer import miura_drawer
 import matplotlib.pyplot as plt
 
 def custom_crossover(ind1, ind2):
@@ -197,12 +196,12 @@ def main():
     #toolbox.register("map", pool.map)
 
     toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=2, indpb=0.2)
-    n_individuos=30
+    n_individuos=500
     # Población inicial
     population = toolbox.population(n_individuos)
      
     NGEN = 1000
-    CXPB, MUTPB = 0.2, 0.3
+    CXPB, MUTPB = 0.2, 0.5
     
     # Variables para early stopping
     improvement_threshold = 1e-5                   
@@ -244,7 +243,7 @@ def main():
         std_fitness_per_gen.append(np.std([ind.fitness.values[0] for ind in population]))
         avg_fitness_per_gen.append(np.mean([ind.fitness.values[0] for ind in population]))
 
-        print(f"GENERACION {gen}, Mejor fitness: {best_fitness_per_gen[-1]:.4f} Promedio de fitness :{avg_fitness_per_gen[-1]:.4f} Desv estándar {std_fitness_per_gen[-1]:.4f}")
+        print(f"GENERACION {gen-5}, Mejor fitness: {best_fitness_per_gen[-1]:.4f} Promedio de fitness :{avg_fitness_per_gen[-1]:.4f} Desv estándar {std_fitness_per_gen[-1]:.4f}")
 
 
 
@@ -265,17 +264,17 @@ def main():
     print("with fitness:", best_ind.fitness.values[0])
     restricciones=calcular_difs(best_ind)
     print("Restricciones",restricciones)
-    #miura_drawer(best_ind[0], best_ind[1], best_ind[2], best_ind[3], best_ind[4])
+
 
     plt.figure(figsize=(8,5))
     generations = range(1, len(best_fitness_per_gen))
-    generaciones_a_eliminar = 3
+    generaciones_a_eliminar = 5
     plt.plot(np.abs(best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
     plt.plot(np.abs(avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
-    plt.plot(std_fitness_per_gen[1:], label="Desviación Estándar", color="green")
+    plt.plot(std_fitness_per_gen[generaciones_a_eliminar:], label="Desviación Estándar", color="green")
     # plt.plot((best_fitness_per_gen[generaciones_a_eliminar:]), label="Mejor Fitness", color="blue")
     # plt.plot((avg_fitness_per_gen[generaciones_a_eliminar:]), label="Fitness Promedio", color="orange")
-    # plt.plot((min_fitness_per_gen[generaciones_a_eliminar:]), label="Peor Fitness", color="green")
+    # plt.plot((std_fitness_per_gen[generaciones_a_eliminar:]), label="Peor Fitness", color="green")
     plt.xlabel("Generaciones")
     plt.ylabel("Valor de Fitness")
     plt.title("Evolución de la Solución, origami Miura")
@@ -293,7 +292,7 @@ def main():
     plt.legend()
     plt.grid()
     plt.yscale('log')  # Cambiar el eje Y a logarítmico
-    plt.xlim(0, max(generations))
+    plt.xlim(generaciones_a_eliminar, max(generations))
     plt.show()
 
     # Cerrar el pool de procesos

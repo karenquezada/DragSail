@@ -2,7 +2,7 @@ import numpy as np
 import os
 import glob
 
-ruta_archivos = "c:/Users/Karen/Desktop/repo_memoria/Solar-Sail/datos_miura"
+ruta_archivos = "c:/Users/Karen/Desktop/repo_memoria/Solar-Sail/data_miura"
 patron = os.path.join(ruta_archivos, "fitness_MUTPB_*_Miura_*.txt")
 
 mutpb_vals = sorted({float(os.path.basename(f).split('_')[2]) for f in glob.glob(patron)})

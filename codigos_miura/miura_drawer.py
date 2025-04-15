@@ -94,4 +94,4 @@ def miura_drawer(w, h, alpha, nv, nh):
 
     plt.show()
 
-#miura_drawer(34.23, 25, 58, 98.5, 4)
+miura_drawer(20, 20, 53, 30, 4)

@@ -171,7 +171,7 @@ def main(MUTPB, mutpb_label, CXPB):
     #toolbox.register("map", pool.map)
 
     toolbox.register("mutate", tools.mutGaussian, mu=0, sigma=2, indpb=0.2)
-    n_individuos=30
+    n_individuos=500
     # Población inicial
     population = toolbox.population(n_individuos)
      
